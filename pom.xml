@@ -4,7 +4,7 @@
     <groupId>no.jskdata</groupId>
     <artifactId>jskdata</artifactId>
     <packaging>jar</packaging>
-    <version>1.0.12</version>
+    <version>1.0.13</version>
     <name>jskdata</name>
     <url>http://maven.apache.org</url>
     <properties>
