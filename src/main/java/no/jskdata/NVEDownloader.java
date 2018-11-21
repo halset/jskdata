@@ -7,7 +7,6 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -16,7 +15,6 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +33,7 @@ import javax.mail.search.SearchTerm;
 
 import org.apache.commons.lang3.time.DateUtils;
 
+import com.google.common.net.UrlEscapers;
 import com.google.gson.Gson;
 
 /**
@@ -99,17 +98,8 @@ public class NVEDownloader extends Downloader {
     public void dataset(String dataset) {
         datasets.add(dataset);
     }
-
-    @Override
-    public void download(Receiver receiver) throws IOException {
-
-        if (datasets.isEmpty()) {
-            return;
-        }
-
-        // Find urls before. Both to check that mail is configured properly and works
-        // *and* to be able to calculate url delta.
-        Set<String> urlsBefore = urlsFromMails();
+    
+    String createDownloadUrl() throws IOException {
 
         // contact server for list of possible data sets and their names
         String u = "http://nedlasting.nve.no/gis/js/temadata.js";
@@ -152,13 +142,8 @@ public class NVEDownloader extends Downloader {
         }
         Map<String, String> params = new LinkedHashMap<>();
         
-        for (Entry<String, String> entry : parameters.entrySet()) {
-        	if (entry.getKey().equals("UTTREKKSTYPE")) {
-        		// insert KARTLAG before UTTREKKSTYPE
-        		params.put("KARTLAG", name0s.toString());
-        	}
-        	params.put(entry.getKey(), entry.getValue());
-        }
+        params.putAll(parameters);
+        params.put("KARTLAG", name0s.toString());
        
         // useful to warn user if the data set has not been found
         if (!datasets.isEmpty()) {
@@ -172,11 +157,27 @@ public class NVEDownloader extends Downloader {
             Map.Entry<String, String> e = it.next();
             url.append(e.getKey());
             url.append("=");
-            url.append(URLEncoder.encode(e.getValue(), "UTF-8"));
+            url.append(UrlEscapers.urlFragmentEscaper().escape(e.getValue()));
             if (it.hasNext()) {
                 url.append('&');
             }
         }
+        
+        return url.toString();
+    }
+    
+    @Override
+    public void download(Receiver receiver) throws IOException {
+
+        if (datasets.isEmpty()) {
+            return;
+        }
+
+        // Find urls before. Both to check that mail is configured properly and works
+        // *and* to be able to calculate url delta.
+        Set<String> urlsBefore = urlsFromMails();
+
+        String url = createDownloadUrl();
 
         // the main request that should start the server process
         HttpURLConnection formSubmitConn = (HttpURLConnection) new URL(url.toString()).openConnection();
@@ -184,10 +185,12 @@ public class NVEDownloader extends Downloader {
             throw new IOException("unexpected response from " + formSubmitConn.getResponseCode() + " "
                     + formSubmitConn.getResponseMessage());
         }
+        
+        Gson gson = new Gson();
         Response response = gson.fromJson(new InputStreamReader(formSubmitConn.getInputStream(), "UTF-8"),
                 Response.class);
         if (response == null || response.getValue() != 1) {
-            throw new IOException("unexpected response from " + url.toString());
+            throw new IOException("unexpected response from " + url.toString() + ". value=" + response.getValue());
         }
 
         getLogger().info("started a download by calling " + url.toString());

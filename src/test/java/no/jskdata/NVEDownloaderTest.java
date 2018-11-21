@@ -12,6 +12,15 @@ import com.google.common.io.ByteStreams;
 
 public class NVEDownloaderTest extends DownloaderTestCase {
 
+    public void testCreateDownloadUrl() throws IOException {
+        NVEDownloader downloader = new NVEDownloader("whatever@whatever.com", "dummy");
+        downloader.dataset("Flomsoner 50");
+        assertEquals(
+                "http://nedlasting.nve.no/gis/WebFormFmeNve.aspx?opt_requesteremail=whatever@whatever.com&EPOST=whatever@whatever.com&FORMAT=SHAPE&KOORDS=EPSG:4326&FIRMA=Ikke%20gitt&BRUKER=Ikke%20gitt&BRUK=Ikke%20gitt&KOMMENTAR=NULL&UTTREKKSTYPE=LAND&KLIPPETYPE=SomOverlapper&KARTLAG=Flom50",
+                downloader.createDownloadUrl());
+
+    }
+
     public void testNVEDownload() throws IOException {
 
         String mailAddress = getProperty("mailAddress");
