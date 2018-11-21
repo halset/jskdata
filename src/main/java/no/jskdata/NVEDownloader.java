@@ -11,11 +11,12 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -49,7 +50,7 @@ public class NVEDownloader extends Downloader {
     private final String mailAddress;
     private final String mailServer;
 
-    private final Map<String, String> parameters = new HashMap<>();
+    private final Map<String, String> parameters = new LinkedHashMap<>();
     private final Set<String> datasets = new HashSet<>();
 
     /**
@@ -74,17 +75,18 @@ public class NVEDownloader extends Downloader {
         if (mailServer == null || mailServer.length() == 0) {
             throw new IllegalArgumentException("Missing mailServer");
         }
-
-        parameters.put("BRUK", "Ikke gitt");
-        parameters.put("BRUKER", "Ikke gitt");
+        
+        parameters.put("opt_requesteremail", mailAddress);
+        parameters.put("EPOST", mailAddress);
+        parameters.put("FORMAT", "SHAPE");
+        parameters.put("KOORDS", "EPSG:4326");
         parameters.put("FIRMA", "Ikke gitt");
+        parameters.put("BRUKER", "Ikke gitt");
+        parameters.put("BRUK", "Ikke gitt");
         parameters.put("KOMMENTAR", "NULL");
         parameters.put("UTTREKKSTYPE", "LAND");
         parameters.put("KLIPPETYPE", "SomOverlapper");
-        parameters.put("KOORDS", "EPSG:4326");
-        parameters.put("FORMAT", "SHAPE");
-        parameters.put("opt_requesteremail", mailAddress);
-        parameters.put("EPOST", mailAddress);
+        
     }
 
     /**
@@ -148,10 +150,16 @@ public class NVEDownloader extends Downloader {
             }
             name1s.append(def.getName1());
         }
-        Map<String, String> params = new HashMap<>(parameters);
-        params.put("KARTLAG", name0s.toString());
-        params.put("NAME1", name1s.toString());
-
+        Map<String, String> params = new LinkedHashMap<>();
+        
+        for (Entry<String, String> entry : parameters.entrySet()) {
+        	if (entry.getKey().equals("UTTREKKSTYPE")) {
+        		// insert KARTLAG before UTTREKKSTYPE
+        		params.put("KARTLAG", name0s.toString());
+        	}
+        	params.put(entry.getKey(), entry.getValue());
+        }
+       
         // useful to warn user if the data set has not been found
         if (!datasets.isEmpty()) {
             throw new IOException("Could not find all datasets. Missing " + datasets);
