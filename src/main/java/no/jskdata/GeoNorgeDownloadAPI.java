@@ -57,7 +57,7 @@ public class GeoNorgeDownloadAPI extends Downloader {
         this.username = null;
         this.password = null;
     }
-    
+
     public GeoNorgeDownloadAPI(String username, String password) {
         this.downloadUrlPrefix = "https://nedlasting.geonorge.no/";
         this.directoryUrlPrefix = "https://kartkatalog.geonorge.no/";
@@ -116,12 +116,9 @@ public class GeoNorgeDownloadAPI extends Downloader {
             }
 
             for (Area area : info.areasForCountry(formatNameFilter)) {
-                OrderLine orderLine = new OrderLine();
-                orderLine.areas = Collections.singletonList(area.asOrderArea());
-                orderLine.metadataUuid = datasetId;
-                orderLine.formats = area.formats(formatNameFilter);
-                orderLine.projections = Collections.singletonList(area.getProjection());
-                order.addOrderLine(orderLine);
+                OrderLine orderLine = order.getOrCreateOrderLine(datasetId, area.getProjection(),
+                        area.formats(formatNameFilter));
+                orderLine.addArea(area.asOrderArea());
             }
 
         }
@@ -129,7 +126,7 @@ public class GeoNorgeDownloadAPI extends Downloader {
         if (orderByOrderUrl.isEmpty()) {
             return;
         }
-        
+
         // SAML authentication.
         Map<String, String> cookies = new HashMap<>();
         if (username != null && password != null) {
@@ -138,13 +135,13 @@ public class GeoNorgeDownloadAPI extends Downloader {
             try {
                 client = new WebClient();
                 client.getOptions().setCssEnabled(false);
-                
+
                 HtmlPage page = client.getPage(u);
                 HtmlForm form = page.getForms().get(0);
                 form.getInputByName("username").setValueAttribute(username);
                 form.getInputByName("password").setValueAttribute(password);
                 page = page.getElementById("regularsubmit").click();
-                
+
                 for (String metadataUUID : datasetIds) {
                     // an extra request is needed..
                     page = client.getPage(directoryUrlPrefix + "AuthServices/SignIn?ReturnUrl="
@@ -174,43 +171,15 @@ public class GeoNorgeDownloadAPI extends Downloader {
                 }
             }
         }
-        
+
         for (Map.Entry<String, Order> e : orderByOrderUrl.entrySet()) {
             String orderUrl = e.getKey();
             Order order = e.getValue();
-            
+
             orderUrl = downloadUrlPrefix + "api/v2/order";
-            
-            HttpURLConnection conn = (HttpURLConnection) new URL(orderUrl).openConnection();
-            conn.setRequestMethod("POST");
-            conn.setInstanceFollowRedirects(false);
-            if (cookiesValue.length() > 0) {
-                conn.setRequestProperty("Cookie", cookiesValue.toString());
-            }            
 
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setDoInput(true);
-            conn.setDoOutput(true);
-            OutputStream out = conn.getOutputStream();
-            out.write(gson.toJson(order).getBytes("UTF-8"));
-            out.flush();
-            
-            if (conn.getResponseCode() >= 401) {
-                getLogger().info("response message: " + conn.getResponseMessage());
-                getLogger().info(conn.getHeaderFields().toString());
-                InputStream err = conn.getErrorStream();
-                if (err != null) {
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    byte[] buf = new byte[1024];
-                    int len = 0;
-                    while ((len = err.read(buf)) >= 0) {
-                        baos.write(buf, 0, len);
-                    }
-                    getLogger().info("err: " + new String(baos.toByteArray(), "UTF-8"));
-                }
-            }
-
-            Reader reader = new InputStreamReader(conn.getInputStream());
+            InputStream orderIn = openConnectionWithRetry(orderUrl, cookiesValue.toString(), gson.toJson(order));
+            Reader reader = new InputStreamReader(orderIn);
             OrderReceipt reciept = gson.fromJson(reader, OrderReceipt.class);
 
             for (File file : reciept.getFiles()) {
@@ -220,43 +189,108 @@ public class GeoNorgeDownloadAPI extends Downloader {
 
                 currentDownloadUrl = file.downloadUrl;
 
-                int singleFileRetryNumber = 0;
-                while (true) {
-                    singleFileRetryNumber++;
-                    HttpURLConnection fileConn = null;
-                    InputStream in = null;
-                    try {
-                        fileConn = (HttpURLConnection) new URL(currentDownloadUrl).openConnection();
-                        fileConn.setInstanceFollowRedirects(false);
-                        if (cookiesValue.length() > 0) {
-                            fileConn.setRequestProperty("Cookie", cookiesValue.toString());
-                        }
-                        int code = fileConn.getResponseCode();
-                        if (code >= 300 && code <= 399) {
-                            String url = fileConn.getHeaderField("Location");
-                            if (url != null) {
-                                currentDownloadUrl = url;
-                                continue;
-                            }
-                        }
-                        in = fileConn.getInputStream();
-                    } catch (IOException retryException) {
-                        if (singleFileRetryNumber > 10) {
-                            getLogger().info("tried " + singleFileRetryNumber + " times. give up. "
-                                    + retryException.getMessage() + ". " + currentDownloadUrl);
-                            throw retryException;
-                        }
-                        getLogger().info("will retry. " + retryException.getMessage() + ". " + currentDownloadUrl);
-                        continue;
-                    }
-                    receiver.receive(file.name, in);
-                    break;
-                }
+                InputStream in = openConnectionWithRetry(currentDownloadUrl, cookiesValue.toString(), null);
+                receiver.receive(file.name, in);
 
                 currentDownloadUrl = null;
             }
         }
 
+    }
+
+    private InputStream openConnectionWithRetry(String url, String cookiesValue, String postData) throws IOException {
+        int retryNumber = 0;
+        while (true) {
+            retryNumber++;
+            long t = System.currentTimeMillis();
+            HttpURLConnection conn = null;
+            try {
+                conn = (HttpURLConnection) new URL(url).openConnection();
+
+                if (postData != null) {
+                    conn.setRequestMethod("POST");
+                }
+
+                conn.setInstanceFollowRedirects(false);
+
+                if (cookiesValue != null && cookiesValue.length() > 0) {
+                    conn.setRequestProperty("Cookie", cookiesValue);
+                }
+
+                if (postData != null) {
+                    conn.setRequestProperty("Content-Type", "application/json");
+                    conn.setDoInput(true);
+                    conn.setDoOutput(true);
+                    OutputStream out = conn.getOutputStream();
+                    out.write(postData.getBytes("UTF-8"));
+                    out.flush();
+                }
+
+                int code = conn.getResponseCode();
+                if (code >= 300 && code <= 399) {
+                    String location = conn.getHeaderField("Location");
+                    if (location != null) {
+                        url = location;
+                        continue;
+                    }
+                }
+
+                if (conn.getResponseCode() >= 401) {
+                    getLogger().info("response message: " + conn.getResponseMessage() + " from " + url);
+                    getLogger().info(conn.getHeaderFields().toString());
+                    InputStream err = conn.getErrorStream();
+                    if (err != null) {
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        byte[] buf = new byte[1024];
+                        int len = 0;
+                        while ((len = err.read(buf)) >= 0) {
+                            baos.write(buf, 0, len);
+                        }
+                        getLogger().info("err: " + new String(baos.toByteArray(), "UTF-8"));
+                    }
+                }
+
+                InputStream in = conn.getInputStream();
+                return in;
+            } catch (IOException retryException) {
+
+                t = System.currentTimeMillis() - t;
+
+                StringBuilder msg = new StringBuilder();
+                msg.append(retryException.getMessage());
+                msg.append(". after ").append(t).append("ms. ");
+
+                if (postData != null) {
+                    msg.append(". with POST data: ");
+                    msg.append(postData);
+                }
+                if (cookiesValue != null && cookiesValue.length() > 0) {
+                    msg.append(". with cookie value: ");
+                    msg.append(cookiesValue);
+                }
+                msg.append(". ").append(url);
+
+                if (retryNumber > 20) {
+                    msg.append("tried ");
+                    msg.append(retryNumber);
+                    msg.append(" times. ");
+                    msg.append(". giving up.");
+                    getLogger().info(msg.toString());
+                    throw retryException;
+                }
+
+                long sleepTimeMS = 100 + (retryNumber * 2000);
+                msg.append(". will retry, but first sleep ").append(sleepTimeMS).append("ms");
+                getLogger().info(msg.toString());
+
+                try {
+                    Thread.sleep(sleepTimeMS);
+                } catch (InterruptedException e) {
+                    getLogger().info("got interrypted sleeping a retry");
+                }
+                continue;
+            }
+        }
     }
 
     private static String ue(String raw) throws IOException {

@@ -1,6 +1,7 @@
 package no.jskdata.data.geonorge;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -9,10 +10,32 @@ import java.util.List;
  */
 public class OrderLine {
 
-    public List<OrderArea> areas = new ArrayList<>();
-    public List<Format> formats = new ArrayList<>();
+    private final List<OrderArea> areas = new ArrayList<>();
+    private final List<Format> formats = new ArrayList<>();
     public String metadataUuid;
     public String coordinates;
-    public List<Projection> projections = new ArrayList<>();
+    private final List<Projection> projections = new ArrayList<>();
+
+    public void addArea(OrderArea area) {
+        areas.add(area);
+    }
+
+    public void setProjection(Projection projection) {
+        projections.clear();
+        projections.add(projection);
+    }
+
+    public boolean hasProjection(Projection projection) {
+        return projections.contains(projection);
+    }
+
+    public void setFormats(Collection<Format> formats) {
+        this.formats.clear();
+        this.formats.addAll(formats);
+    }
+
+    public boolean hasFormats(Collection<Format> formats) {
+        return this.formats.containsAll(formats);
+    }
 
 }
