@@ -9,22 +9,16 @@ import java.io.Reader;
 import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import com.gargoylesoftware.htmlunit.WebClient;
-import com.gargoylesoftware.htmlunit.html.HtmlForm;
-import com.gargoylesoftware.htmlunit.html.HtmlPage;
-import com.gargoylesoftware.htmlunit.util.Cookie;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 
@@ -47,27 +41,17 @@ public class GeoNorgeDownloadAPI extends Downloader {
     private final Gson gson = new Gson();
 
     private final String downloadUrlPrefix;
-    private final String directoryUrlPrefix;
     private final String username;
     private final String password;
 
     public GeoNorgeDownloadAPI() {
         this.downloadUrlPrefix = "https://nedlasting.geonorge.no/";
-        this.directoryUrlPrefix = "https://kartkatalog.geonorge.no/";
         this.username = null;
         this.password = null;
     }
 
     public GeoNorgeDownloadAPI(String username, String password) {
         this.downloadUrlPrefix = "https://nedlasting.geonorge.no/";
-        this.directoryUrlPrefix = "https://kartkatalog.geonorge.no/";
-        this.username = username;
-        this.password = password;
-    }
-
-    public GeoNorgeDownloadAPI(String downloadUrlPrefix, String directoryUrlPrefix, String username, String password) {
-        this.downloadUrlPrefix = downloadUrlPrefix;
-        this.directoryUrlPrefix = directoryUrlPrefix;
         this.username = username;
         this.password = password;
     }
@@ -127,58 +111,13 @@ public class GeoNorgeDownloadAPI extends Downloader {
             return;
         }
 
-        // SAML authentication.
-        Map<String, String> cookies = new HashMap<>();
-        if (username != null && password != null) {
-            String u = directoryUrlPrefix + "AuthServices/SignIn?ReturnUrl=" + ue(directoryUrlPrefix + "search");
-            WebClient client = null;
-            try {
-                client = new WebClient();
-                client.getOptions().setCssEnabled(false);
-
-                HtmlPage page = client.getPage(u);
-                HtmlForm form = page.getForms().get(0);
-                form.getInputByName("username").setValueAttribute(username);
-                form.getInputByName("password").setValueAttribute(password);
-                page = page.getElementById("regularsubmit").click();
-
-                for (String metadataUUID : datasetIds) {
-                    // an extra request is needed..
-                    page = client.getPage(directoryUrlPrefix + "AuthServices/SignIn?ReturnUrl="
-                            + ue(downloadUrlPrefix + "AuthServices/SignIn?ReturnUrl=" + ue(directoryUrlPrefix
-                                    + "search?text=" + metadataUUID + "&addtocart_event_id=" + metadataUUID)));
-                }
-
-                for (Cookie cookie : client.getCookieManager().getCookies()) {
-                    cookies.put(cookie.getName(), cookie.getValue());
-                }
-            } finally {
-                if (client != null) {
-                    client.close();
-                }
-            }
-        }
-
-        // SAML cookies only
-        cookies.keySet().retainAll(Arrays.asList("FedAuth", "FedAuth1"));
-        StringBuilder cookiesValue = new StringBuilder();
-        if (!cookies.isEmpty()) {
-            for (Iterator<Map.Entry<String, String>> it = cookies.entrySet().iterator(); it.hasNext();) {
-                Map.Entry<String, String> cookie = it.next();
-                cookiesValue.append(cookie.getKey()).append('=').append(cookie.getValue());
-                if (it.hasNext()) {
-                    cookiesValue.append("; ");
-                }
-            }
-        }
-
         for (Map.Entry<String, Order> e : orderByOrderUrl.entrySet()) {
             String orderUrl = e.getKey();
             Order order = e.getValue();
 
-            orderUrl = downloadUrlPrefix + "api/v2/order";
+            orderUrl = downloadUrlPrefix + "api/order";
 
-            InputStream orderIn = openConnectionWithRetry(orderUrl, cookiesValue.toString(), gson.toJson(order));
+            InputStream orderIn = openConnectionWithRetry(orderUrl, gson.toJson(order));
             Reader reader = new InputStreamReader(orderIn);
             OrderReceipt reciept = gson.fromJson(reader, OrderReceipt.class);
 
@@ -189,7 +128,7 @@ public class GeoNorgeDownloadAPI extends Downloader {
 
                 currentDownloadUrl = file.downloadUrl;
 
-                InputStream in = openConnectionWithRetry(currentDownloadUrl, cookiesValue.toString(), null);
+                InputStream in = openConnectionWithRetry(currentDownloadUrl, null);
                 receiver.receive(file.name, in);
 
                 currentDownloadUrl = null;
@@ -198,7 +137,7 @@ public class GeoNorgeDownloadAPI extends Downloader {
 
     }
 
-    private InputStream openConnectionWithRetry(String url, String cookiesValue, String postData) throws IOException {
+    private InputStream openConnectionWithRetry(String url, String postData) throws IOException {
         int retryNumber = 0;
         while (true) {
             retryNumber++;
@@ -210,12 +149,14 @@ public class GeoNorgeDownloadAPI extends Downloader {
                 if (postData != null) {
                     conn.setRequestMethod("POST");
                 }
+                
+                if (username != null && password != null) {
+                    String userpass = username + ":" + password;
+                    String encoded = Base64.getEncoder().encodeToString(userpass.getBytes("UTF-8"));
+                    conn.setRequestProperty("Authorization", "Basic " + encoded.trim());
+                }
 
                 conn.setInstanceFollowRedirects(false);
-
-                if (cookiesValue != null && cookiesValue.length() > 0) {
-                    conn.setRequestProperty("Cookie", cookiesValue);
-                }
 
                 if (postData != null) {
                     conn.setRequestProperty("Content-Type", "application/json");
@@ -235,7 +176,7 @@ public class GeoNorgeDownloadAPI extends Downloader {
                     }
                 }
 
-                if (conn.getResponseCode() >= 401) {
+                if (conn.getResponseCode() >= 400) {
                     getLogger().info("response message: " + conn.getResponseMessage() + " from " + url);
                     getLogger().info(conn.getHeaderFields().toString());
                     InputStream err = conn.getErrorStream();
@@ -264,10 +205,6 @@ public class GeoNorgeDownloadAPI extends Downloader {
                     msg.append(". with POST data: ");
                     msg.append(postData);
                 }
-                if (cookiesValue != null && cookiesValue.length() > 0) {
-                    msg.append(". with cookie value: ");
-                    msg.append(cookiesValue);
-                }
                 msg.append(". ").append(url);
 
                 if (retryNumber > 20) {
@@ -291,10 +228,6 @@ public class GeoNorgeDownloadAPI extends Downloader {
                 continue;
             }
         }
-    }
-
-    private static String ue(String raw) throws IOException {
-        return URLEncoder.encode(raw, "UTF-8");
     }
 
     private <T> T fetchAndParse(String url, Class<T> type) throws IOException {

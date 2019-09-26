@@ -36,7 +36,9 @@ A java downloader for https://download.geonorge.no/skdl2/,
   gndlapi.download((fileName, in) -> { # or implement Receiver
   });
   
-  // download using GeoNorge "NedlastingsAPI" with authentication
+  // download using GeoNorge "NedlastingsAPI" with authentication.
+  // NB: This requires a special user for HTTP Basic Authentication, not
+  // a normal GeoID account.
   Downloader gndlapia = new GeoNorgeDownloadAPI(geonorgeUsername, geonorgePassword);
   gndlapia.setFormatNameFilter(n -> n.contains("SOSI"));
   gndlapia.dataset("6e05aefb-f90e-4c7d-9fb9-299574d0bbf6");
