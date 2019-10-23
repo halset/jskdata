@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Date;
 import java.util.logging.Logger;
 
 public class URLFileInfo {
@@ -16,6 +17,7 @@ public class URLFileInfo {
     private String url;
 
     private Number contentLength;
+    private Date lastModified;
 
     private File tempLocalFile;
 
@@ -60,6 +62,7 @@ public class URLFileInfo {
         if (conn.getResponseCode() == 200) {
             log.info("got 200 for " + url);
             contentLength = conn.getContentLengthLong();
+            lastModified = new Date(conn.getHeaderFieldDate("Last-Modified", 0));
         } else {
             System.out.println("got " + conn.getResponseCode() + " for " + url);
         }
@@ -74,6 +77,17 @@ public class URLFileInfo {
             }
         }
         return contentLength;
+    }
+
+    public Date getLastModified() {
+        if (lastModified == null) {
+            try {
+                doHEAD();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return lastModified;
     }
 
     public byte[] read(long offset, int length) throws IOException {
