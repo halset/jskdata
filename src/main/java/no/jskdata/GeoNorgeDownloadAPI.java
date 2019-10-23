@@ -22,6 +22,7 @@ import java.util.function.Predicate;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 
+import no.jskdata.data.URLFileInfo;
 import no.jskdata.data.geonorge.Area;
 import no.jskdata.data.geonorge.Capabilities;
 import no.jskdata.data.geonorge.File;
@@ -59,6 +60,53 @@ public class GeoNorgeDownloadAPI extends Downloader {
     @Override
     public void dataset(String datasetId) {
         datasetIds.add(datasetId);
+    }
+
+    public Set<String> datasets() {
+        return Collections.unmodifiableSet(datasetIds);
+    }
+
+    public List<URLFileInfo> filesForDataset(String datasetId) throws IOException {
+        List<URLFileInfo> files = new ArrayList<>();
+
+        Map<String, Order> orderByOrderUrl = new HashMap<>();
+
+        {
+            DatasetInfo info = datasetInfo(datasetId);
+
+            Order order = orderByOrderUrl.get(info.orderUrl);
+            if (order == null) {
+                order = new Order();
+                orderByOrderUrl.put(info.orderUrl, order);
+            }
+
+            for (Area area : info.areasForCountry(formatNameFilter)) {
+                OrderLine orderLine = order.getOrCreateOrderLine(datasetId, area.getProjection(),
+                        area.formats(formatNameFilter));
+                orderLine.addArea(area.asOrderArea());
+            }
+        }
+
+        for (Map.Entry<String, Order> e : orderByOrderUrl.entrySet()) {
+            String orderUrl = e.getKey();
+            Order order = e.getValue();
+
+            orderUrl = downloadUrlPrefix + "api/order";
+
+            InputStream orderIn = openConnectionWithRetry(orderUrl, gson.toJson(order));
+            Reader reader = new InputStreamReader(orderIn);
+            OrderReceipt reciept = gson.fromJson(reader, OrderReceipt.class);
+
+            for (File file : reciept.getFiles()) {
+                if (!fileNameFilter.test(file.name)) {
+                    continue;
+                }
+
+                files.add(new URLFileInfo(file.name, file.downloadUrl));
+            }
+        }
+
+        return files;
     }
 
     private DatasetInfo datasetInfo(String datasetId) throws IOException {
@@ -149,7 +197,7 @@ public class GeoNorgeDownloadAPI extends Downloader {
                 if (postData != null) {
                     conn.setRequestMethod("POST");
                 }
-                
+
                 if (username != null && password != null) {
                     String userpass = username + ":" + password;
                     String encoded = Base64.getEncoder().encodeToString(userpass.getBytes("UTF-8"));
