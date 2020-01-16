@@ -67,6 +67,8 @@ public abstract class Downloader {
         String mailAddress = options.get("mailAddress");
         String mailServer = options.get("mailServer");
         boolean hasMail = mailAddress != null && mailServer != null;
+        
+        String url = options.get("url");
 
         Downloader dl = new NoDownloader();
         if ("url".equals(type)) {
@@ -81,6 +83,8 @@ public abstract class Downloader {
             dl = new AvinorAIPDownloader();
         } else if (type.equals("NVE") && hasMail) {
             dl = new NVEDownloader(mailAddress, mailServer);
+        } else if (type.equals("WFS") && url != null) {
+            dl = new WFS2Downloader(url);
         }
 
         String dataset = options.get("dataset");
