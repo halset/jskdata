@@ -15,7 +15,7 @@ A java downloader for https://download.geonorge.no/skdl2/,
 <dependency>
     <groupId>no.jskdata</groupId>
     <artifactId>jskdata</artifactId>
-    <version>1.0.15</version>
+    <version>1.0.16</version>
 </dependency>
 ````
 
