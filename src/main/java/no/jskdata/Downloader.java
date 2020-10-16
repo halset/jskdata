@@ -64,10 +64,6 @@ public abstract class Downloader {
         String password = options.get("password");
         boolean hasUserAndPass = username != null && password != null;
         
-        String mailAddress = options.get("mailAddress");
-        String mailServer = options.get("mailServer");
-        boolean hasMail = mailAddress != null && mailServer != null;
-        
         String url = options.get("url");
 
         Downloader dl = new NoDownloader();
@@ -81,8 +77,6 @@ public abstract class Downloader {
             dl = new Hoydedata();
         } else if (type.equals("AvinorAIP")) {
             dl = new AvinorAIPDownloader();
-        } else if (type.equals("NVE") && hasMail) {
-            dl = new NVEDownloader(mailAddress, mailServer);
         } else if (type.equals("WFS") && url != null) {
             dl = new WFS2Downloader(url);
         }

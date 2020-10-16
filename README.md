@@ -52,17 +52,11 @@ A java downloader for https://download.geonorge.no/skdl2/,
   hoydedata.download((fileName,in) -> { # or implement Receiver
   });
   
-  // download from NVE by email
-  Downloader nve = new NVEDownloader("user@doma.in", "imaps://user:pass@imapserv.er/");
-  nve.dataset("Flomsoner 50");
-  nve.download((fileName, in) -> { # or implement Receiver
-  });
-  
 ```
 
 ## Test
 ```
-mvn -Dgeonorge.username=... -Dgeonorge.password=... -DmailAddress=user@doma.in -DmailServer=imaps://user:pass@imapserv.er/ test
+mvn -Dgeonorge.username=... -Dgeonorge.password=... test
 ```
 
 ## Legal
