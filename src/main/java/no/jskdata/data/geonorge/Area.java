@@ -53,8 +53,14 @@ public class Area {
         return Collections.unmodifiableList(r);
     }
     
-    public Projection getProjection() {
-        return Collections.min(projections);
+    public List<Projection> getProjections(Predicate<String> projectionNameFilter) {
+        List<Projection> r = new ArrayList<>();
+        for (Projection projection : projections) {
+            if (projectionNameFilter.test(projection.code) || projectionNameFilter.test(projection.name)) {
+                r.add(projection);
+            }
+        }
+        return Collections.unmodifiableList(r);
     }
 
     @Override

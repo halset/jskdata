@@ -41,5 +41,10 @@ public class Projection implements Comparable<Projection> {
         Projection o = (Projection) obj;
         return code.equals(o.code);
     }
+    
+    @Override
+    public String toString() {
+        return super.toString() + "{code:" + code + ",name:" + name + ",codeSpace:" + codespace + "}";
+    }
 
 }

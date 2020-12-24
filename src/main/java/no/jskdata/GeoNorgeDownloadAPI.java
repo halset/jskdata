@@ -29,6 +29,7 @@ import no.jskdata.data.geonorge.File;
 import no.jskdata.data.geonorge.Order;
 import no.jskdata.data.geonorge.OrderLine;
 import no.jskdata.data.geonorge.OrderReceipt;
+import no.jskdata.data.geonorge.Projection;
 
 /**
  * A way to access
@@ -81,7 +82,11 @@ public class GeoNorgeDownloadAPI extends Downloader {
             }
 
             for (Area area : info.areasForCountry(formatNameFilter)) {
-                OrderLine orderLine = order.getOrCreateOrderLine(datasetId, area.getProjection(),
+                List<Projection> projections = area.getProjections(projectionNameFilter);
+                if (projections.isEmpty()) {
+                    continue;
+                }
+                OrderLine orderLine = order.getOrCreateOrderLine(datasetId, projections.get(0),
                         area.formats(formatNameFilter));
                 orderLine.addArea(area.asOrderArea());
             }
@@ -148,7 +153,11 @@ public class GeoNorgeDownloadAPI extends Downloader {
             }
 
             for (Area area : info.areasForCountry(formatNameFilter)) {
-                OrderLine orderLine = order.getOrCreateOrderLine(datasetId, area.getProjection(),
+                List<Projection> projections = area.getProjections(projectionNameFilter);
+                if (projections.isEmpty()) {
+                    continue;
+                }
+                OrderLine orderLine = order.getOrCreateOrderLine(datasetId, projections.get(0),
                         area.formats(formatNameFilter));
                 orderLine.addArea(area.asOrderArea());
             }

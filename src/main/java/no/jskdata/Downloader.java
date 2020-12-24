@@ -13,6 +13,8 @@ public abstract class Downloader {
     
     protected Predicate<String> formatNameFilter = (String) -> true;
     
+    protected Predicate<String> projectionNameFilter = (String) -> true;
+    
     protected String currentDownloadUrl;
 
     private Logger log;
@@ -30,6 +32,10 @@ public abstract class Downloader {
     
     public void setFormatNameFilter(Predicate<String> formatNameFilter) {
         this.formatNameFilter = formatNameFilter;
+    }
+    
+    public void setProjectionNameFilter(Predicate<String> projectionNameFilter) {
+        this.projectionNameFilter = projectionNameFilter;
     }
 
     public abstract void dataset(String dataset);
@@ -94,6 +100,11 @@ public abstract class Downloader {
         String formatName = options.get("formatName");
         if (formatName != null) {
             dl.setFormatNameFilter(n -> n.contains(formatName));
+        }
+        
+        String projectionName = options.get("projectionName");
+        if (projectionName != null) {
+            dl.setProjectionNameFilter(n -> n.contains(projectionName));
         }
 
         return dl;
