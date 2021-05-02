@@ -8,13 +8,13 @@ A java downloader for [GeoNorge Download API](https://www.geonorge.no/for-utvikl
 ```
 <repository>
     <id>ECC</id>
-    <url>https://github.com/ElectronicChartCentre/ecc-mvn-repo/raw/master/releases</url>
+    <url>https://maven.ecc.no/releases</url>
 </repository>
 
 <dependency>
     <groupId>no.jskdata</groupId>
     <artifactId>jskdata</artifactId>
-    <version>1.0.18</version>
+    <version>1.0.19</version>
 </dependency>
 ````
 
