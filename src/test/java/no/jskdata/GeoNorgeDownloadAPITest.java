@@ -85,4 +85,22 @@ public class GeoNorgeDownloadAPITest extends DownloaderTestCase {
         assertTrue(fileNames.iterator().next().contains("SOSI"));
     }
     
+    public void testN1000() throws IOException {
+        Downloader downloader = new GeoNorgeDownloadAPI();
+        downloader.setFormatNameFilter(n -> n.contains("SOSI"));
+        downloader.dataset("aee42bb6-d0e9-4d70-86fe-6ea76c381055");
+        Set<String> fileNames = new HashSet<>();
+        Map<String, Long> lengthByFileName = new HashMap<>();
+        downloader.download(new DefaultReceiver() {
+
+            @Override
+            public void receive(String fileName, InputStream in) throws IOException {
+                fileNames.add(fileName);
+                long l = ByteStreams.exhaust(in);
+                lengthByFileName.put(fileName, Long.valueOf(l));
+            }
+        });
+        assertEquals(1, fileNames.size());
+    }
+    
 }

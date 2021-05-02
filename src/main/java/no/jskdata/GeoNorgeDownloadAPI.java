@@ -140,43 +140,35 @@ public class GeoNorgeDownloadAPI extends Downloader {
 
     @Override
     public void download(Receiver receiver) throws IOException {
-
-        Map<String, Order> orderByOrderUrl = new HashMap<>();
-
         for (String datasetId : datasetIds) {
-            DatasetInfo info = datasetInfo(datasetId);
-
-            Order order = orderByOrderUrl.get(info.orderUrl);
-            if (order == null) {
-                order = new Order();
-                orderByOrderUrl.put(info.orderUrl, order);
-            }
-
-            for (Area area : info.areasForCountry(formatNameFilter)) {
-                List<Projection> projections = area.getProjections(projectionNameFilter);
-                if (projections.isEmpty()) {
-                    continue;
-                }
-                OrderLine orderLine = order.getOrCreateOrderLine(datasetId, projections.get(0),
-                        area.formats(formatNameFilter));
-                orderLine.addArea(area.asOrderArea());
-            }
-
+            download(receiver, datasetId);
         }
+    }
 
-        if (orderByOrderUrl.isEmpty()) {
-            return;
+    private void download(Receiver receiver, String datasetId) throws IOException {
+        DatasetInfo info = datasetInfo(datasetId);
+        for (Area area : info.areasForCountry(formatNameFilter)) {
+            download(receiver, datasetId, area);
         }
+    }
 
-        for (Map.Entry<String, Order> e : orderByOrderUrl.entrySet()) {
-            String orderUrl = e.getKey();
-            Order order = e.getValue();
+    private void download(Receiver receiver, String datasetId, Area area) throws IOException {
 
-            orderUrl = downloadUrlPrefix + "api/order";
+        String orderUrl = downloadUrlPrefix + "api/order";
+
+        for (Projection projection : area.getProjections(projectionNameFilter)) {
+            Order order = new Order();
+            OrderLine orderLine = order.getOrCreateOrderLine(datasetId, projection, area.formats(formatNameFilter));
+            orderLine.addArea(area.asOrderArea());
 
             InputStream orderIn = openConnectionWithRetry(orderUrl, gson.toJson(order));
             Reader reader = new InputStreamReader(orderIn);
             OrderReceipt reciept = gson.fromJson(reader, OrderReceipt.class);
+
+            // not all areas have all file formats for all projections
+            if (reciept.getFiles().isEmpty()) {
+                continue;
+            }
 
             for (File file : reciept.getFiles()) {
                 if (!fileNameFilter.test(file.name)) {
@@ -190,8 +182,11 @@ public class GeoNorgeDownloadAPI extends Downloader {
 
                 currentDownloadUrl = null;
             }
+
+            return;
         }
 
+        throw new IllegalStateException("no files to download for datasetId: " + datasetId + ", area: " + area);
     }
 
     private InputStream openConnectionWithRetry(String url, String postData) throws IOException {

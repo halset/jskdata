@@ -68,21 +68,16 @@ public abstract class Downloader {
         
         String username = options.get("username");
         String password = options.get("password");
-        boolean hasUserAndPass = username != null && password != null;
         
         String url = options.get("url");
 
         Downloader dl = new NoDownloader();
         if ("url".equals(type)) {
             dl = new URLDownloader();
-        } else if (hasUserAndPass && type.equals("GeoNorgeSkdl2")) {
-            dl = new GeoNorgeSkdl2(username, password);
         } else if (type.equals("GeoNorgeDownloadAPI")) {
             dl = new GeoNorgeDownloadAPI(username, password);
         } else if (type.equals("hoydedata.no")) {
             dl = new Hoydedata();
-        } else if (type.equals("AvinorAIP")) {
-            dl = new AvinorAIPDownloader();
         } else if (type.equals("WFS") && url != null) {
             dl = new WFS2Downloader(url);
         }

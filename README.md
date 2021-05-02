@@ -1,8 +1,7 @@
 # jskdata
 
-A java downloader for https://download.geonorge.no/skdl2/,
-[GeoNorge Download API](https://www.geonorge.no/for-utviklere/APIer-og-grensesnitt/nedlastingsapiet/) , 
-[Hoydedata](http://www.hoydedata.no/Laserinnsyn).
+A java downloader for [GeoNorge Download API](https://www.geonorge.no/for-utviklere/APIer-og-grensesnitt/nedlastingsapiet/) , 
+[Hoydedata](http://www.hoydedata.no/Laserinnsyn) and OGC WFS.
 
 ## Maven
 
@@ -21,14 +20,6 @@ A java downloader for https://download.geonorge.no/skdl2/,
 
 ## Usage
 ```
-  // download from https://download.geonorge.no/skdl2/
-  // NB: different username/password than the public http://data.kartverket.no/download/
-  Downloader skdl2 = new GeoNorgeSkdl2(geonorgeUsername, geonorgePassword);
-  skdl2.setFileNameFilter(n -> n.endsWith("_Ledning.zip"));
-  skdl2.dataset("FKB-data");
-  skdl2.download((fileName, in) -> { # or implement Receiver
-  });
-  
   // download using GeoNorge "NedlastingsAPI" anonymously
   Downloader gndlapi = new GeoNorgeDownloadAPI();
   gndlapi.setFormatNameFilter(n -> n.contains("SOSI"));
