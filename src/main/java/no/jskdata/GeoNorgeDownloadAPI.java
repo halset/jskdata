@@ -202,12 +202,7 @@ public class GeoNorgeDownloadAPI extends Downloader {
                     conn.setRequestMethod("POST");
                 }
 
-                if (username != null && password != null) {
-                    String userpass = username + ":" + password;
-                    String encoded = Base64.getEncoder().encodeToString(userpass.getBytes("UTF-8"));
-                    conn.setRequestProperty("Authorization", "Basic " + encoded.trim());
-                }
-
+                appendBasicAuth(conn);
                 conn.setInstanceFollowRedirects(false);
 
                 if (postData != null) {
@@ -284,6 +279,7 @@ public class GeoNorgeDownloadAPI extends Downloader {
 
     private <T> T fetchAndParse(String url, Class<T> type) throws IOException {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        appendBasicAuth(conn);
         if (conn.getResponseCode() == 404) {
             return null;
         }
@@ -293,12 +289,21 @@ public class GeoNorgeDownloadAPI extends Downloader {
 
     private <T> T fetchAndParse(String url, Type type) throws IOException {
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        appendBasicAuth(conn);
         if (conn.getResponseCode() == 404) {
             return null;
         }
 
         Reader reader = new InputStreamReader(conn.getInputStream());
         return gson.fromJson(reader, type);
+    }
+    
+    private void appendBasicAuth(HttpURLConnection conn) throws IOException {
+        if (username != null && password != null) {
+            String userpass = username + ":" + password;
+            String encoded = Base64.getEncoder().encodeToString(userpass.getBytes("UTF-8"));
+            conn.setRequestProperty("Authorization", "Basic " + encoded.trim());
+        }
     }
 
     @Override
