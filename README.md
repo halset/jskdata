@@ -14,7 +14,7 @@ A java downloader for [GeoNorge Download API](https://www.geonorge.no/for-utvikl
 <dependency>
     <groupId>no.jskdata</groupId>
     <artifactId>jskdata</artifactId>
-    <version>1.0.19</version>
+    <version>1.0.20</version>
 </dependency>
 ````
 
