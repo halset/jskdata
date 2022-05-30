@@ -8,7 +8,7 @@ A java downloader for [GeoNorge Download API](https://www.geonorge.no/for-utvikl
 ```
 <repository>
     <id>ECC</id>
-    <url>https://maven.ecc.no/releases</url>
+    <url>https://ecc-mvn.ams3.digitaloceanspaces.com/releases</url>
 </repository>
 
 <dependency>
